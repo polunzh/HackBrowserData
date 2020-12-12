@@ -20,19 +20,13 @@ import (
 
 type Item interface {
 	// ChromeParse parse chrome items, Password and Cookie need secret key
-	ChromeParse(key []byte) error
+	ChromeParse(key []byte, filepath string) error
 
 	// FirefoxParse parse firefox items
-	FirefoxParse() error
+	FirefoxParse(filepath string) error
 
 	// OutPut file name and format type
 	OutPut(format, browser, dir string) error
-
-	// CopyDB is copy item db file to current dir
-	CopyDB() error
-
-	// Release is delete item db file
-	Release() error
 }
 
 const (
@@ -78,8 +72,8 @@ func NewBookmarks(main, sub string) Item {
 	return &bookmarks{mainPath: main}
 }
 
-func (b *bookmarks) ChromeParse(key []byte) error {
-	bookmarks, err := utils.ReadFile(ChromeBookmarkFile)
+func (b *bookmarks) ChromeParse(key []byte, filepath string) error {
+	bookmarks, err := utils.ReadFile(filepath)
 	if err != nil {
 		return err
 	}
@@ -115,7 +109,7 @@ func getBookmarkChildren(value gjson.Result, b *bookmarks) (children gjson.Resul
 	return children
 }
 
-func (b *bookmarks) FirefoxParse() error {
+func (b *bookmarks) FirefoxParse(filepath string) error {
 	var (
 		err          error
 		keyDB        *sql.DB
@@ -123,7 +117,7 @@ func (b *bookmarks) FirefoxParse() error {
 		tempMap      map[int64]string
 		bookmarkUrl  string
 	)
-	keyDB, err = sql.Open("sqlite3", FirefoxDataFile)
+	keyDB, err = sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -163,14 +157,6 @@ func (b *bookmarks) FirefoxParse() error {
 	return nil
 }
 
-func (b *bookmarks) CopyDB() error {
-	return copyToLocalPath(b.mainPath, filepath.Base(b.mainPath))
-}
-
-func (b *bookmarks) Release() error {
-	return os.Remove(filepath.Base(b.mainPath))
-}
-
 func (b *bookmarks) OutPut(format, browser, dir string) error {
 	sort.Slice(b.bookmarks, func(i, j int) bool {
 		return b.bookmarks[i].ID < b.bookmarks[j].ID
@@ -197,9 +183,9 @@ func NewCookies(main, sub string) Item {
 	return &cookies{mainPath: main}
 }
 
-func (c *cookies) ChromeParse(secretKey []byte) error {
+func (c *cookies) ChromeParse(secretKey []byte, filepath string) error {
 	c.cookies = make(map[string][]cookie)
-	cookieDB, err := sql.Open("sqlite3", ChromeCookieFile)
+	cookieDB, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -255,9 +241,9 @@ func (c *cookies) ChromeParse(secretKey []byte) error {
 	return nil
 }
 
-func (c *cookies) FirefoxParse() error {
+func (c *cookies) FirefoxParse(filepath string) error {
 	c.cookies = make(map[string][]cookie)
-	cookieDB, err := sql.Open("sqlite3", FirefoxCookieFile)
+	cookieDB, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -299,14 +285,6 @@ func (c *cookies) FirefoxParse() error {
 	return nil
 }
 
-func (c *cookies) CopyDB() error {
-	return copyToLocalPath(c.mainPath, filepath.Base(c.mainPath))
-}
-
-func (c *cookies) Release() error {
-	return os.Remove(filepath.Base(c.mainPath))
-}
-
 func (c *cookies) OutPut(format, browser, dir string) error {
 	switch format {
 	case "csv":
@@ -330,8 +308,8 @@ func NewHistoryData(main, sub string) Item {
 	return &historyData{mainPath: main}
 }
 
-func (h *historyData) ChromeParse(key []byte) error {
-	historyDB, err := sql.Open("sqlite3", ChromeHistoryFile)
+func (h *historyData) ChromeParse(key []byte, filepath string) error {
+	historyDB, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -370,7 +348,7 @@ func (h *historyData) ChromeParse(key []byte) error {
 	return nil
 }
 
-func (h *historyData) FirefoxParse() error {
+func (h *historyData) FirefoxParse(filepath string) error {
 	var (
 		err         error
 		keyDB       *sql.DB
@@ -378,7 +356,7 @@ func (h *historyData) FirefoxParse() error {
 		tempMap     map[int64]string
 	)
 	tempMap = make(map[int64]string)
-	keyDB, err = sql.Open("sqlite3", FirefoxDataFile)
+	keyDB, err = sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -422,14 +400,6 @@ func (h *historyData) FirefoxParse() error {
 	return nil
 }
 
-func (h *historyData) CopyDB() error {
-	return copyToLocalPath(h.mainPath, filepath.Base(h.mainPath))
-}
-
-func (h *historyData) Release() error {
-	return os.Remove(filepath.Base(h.mainPath))
-}
-
 func (h *historyData) OutPut(format, browser, dir string) error {
 	sort.Slice(h.history, func(i, j int) bool {
 		return h.history[i].VisitCount > h.history[j].VisitCount
@@ -461,8 +431,8 @@ func NewCPasswords(main, sub string) Item {
 	return &passwords{mainPath: main}
 }
 
-func (p *passwords) ChromeParse(key []byte) error {
-	loginDB, err := sql.Open("sqlite3", ChromePasswordFile)
+func (p *passwords) ChromeParse(key []byte, filepath string) error {
+	loginDB, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -514,7 +484,7 @@ func (p *passwords) ChromeParse(key []byte) error {
 	return nil
 }
 
-func (p *passwords) FirefoxParse() error {
+func (p *passwords) FirefoxParse(filepath string) error {
 	globalSalt, metaBytes, nssA11, nssA102, err := getFirefoxDecryptKey()
 	if err != nil {
 		return err
@@ -574,28 +544,6 @@ func (p *passwords) FirefoxParse() error {
 	return nil
 }
 
-func (p *passwords) CopyDB() error {
-	err := copyToLocalPath(p.mainPath, filepath.Base(p.mainPath))
-	if err != nil {
-		log.Error(err)
-	}
-	if p.subPath != "" {
-		err = copyToLocalPath(p.subPath, filepath.Base(p.subPath))
-	}
-	return err
-}
-
-func (p *passwords) Release() error {
-	err := os.Remove(filepath.Base(p.mainPath))
-	if err != nil {
-		log.Error(err)
-	}
-	if p.subPath != "" {
-		err = os.Remove(filepath.Base(p.subPath))
-	}
-	return err
-}
-
 func (p *passwords) OutPut(format, browser, dir string) error {
 	sort.Sort(p)
 	switch format {
@@ -620,13 +568,13 @@ func NewCCards(main string, sub string) Item {
 	return &creditCards{mainPath: main}
 }
 
-func (c *creditCards) FirefoxParse() error {
+func (c *creditCards) FirefoxParse(filepath string) error {
 	return nil // FireFox does not have a credit card saving feature
 }
 
-func (c *creditCards) ChromeParse(secretKey []byte) error {
+func (c *creditCards) ChromeParse(secretKey []byte, filepath string) error {
 	c.cards = make(map[string][]card)
-	creditDB, err := sql.Open("sqlite3", ChromeCreditFile)
+	creditDB, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		return err
 	}
@@ -671,14 +619,6 @@ func (c *creditCards) ChromeParse(secretKey []byte) error {
 		c.cards[guid] = append(c.cards[guid], creditCardInfo)
 	}
 	return nil
-}
-
-func (c *creditCards) CopyDB() error {
-	return copyToLocalPath(c.mainPath, filepath.Base(c.mainPath))
-}
-
-func (c *creditCards) Release() error {
-	return os.Remove(filepath.Base(c.mainPath))
 }
 
 func (c *creditCards) OutPut(format, browser, dir string) error {
